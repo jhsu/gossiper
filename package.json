@@ -1,0 +1,22 @@
+{
+  "name": "slack-side-voice",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch index.ts",
+    "start": "bun index.ts",
+    "check": "bunx tsc --noEmit",
+    "funnel": "tailscale funnel 3005 & bun --watch index.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "latest",
+    "ai": "latest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

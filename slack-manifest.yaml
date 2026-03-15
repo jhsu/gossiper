@@ -1,0 +1,27 @@
+display_information:
+  name: Side Voice
+  description: Passive Slack listener that sends AI-generated private commentary.
+  background_color: "#1f2937"
+features:
+  bot_user:
+    display_name: Side Voice
+    always_online: false
+oauth_config:
+  redirect_urls:
+    - https://your-domain.example/slack/oauth/callback
+  scopes:
+    bot:
+      - channels:history
+      - groups:history
+      - chat:write
+settings:
+  event_subscriptions:
+    request_url: https://your-domain.example/slack/events
+    bot_events:
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
