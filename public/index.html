@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gossiper</title>
+    <meta
+      name="description"
+      content="Gossiper is a Slack app that listens to channel messages and sends private AI-generated commentary."
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1020;
+        --panel: rgba(17, 24, 39, 0.85);
+        --text: #f3f4f6;
+        --muted: #9ca3af;
+        --accent: #a78bfa;
+        --accent-2: #22d3ee;
+        --border: rgba(255, 255, 255, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(167, 139, 250, 0.22), transparent 28%),
+          radial-gradient(circle at top right, rgba(34, 211, 238, 0.18), transparent 30%),
+          linear-gradient(180deg, #0b1020, #111827 55%, #0f172a);
+        min-height: 100vh;
+      }
+
+      .wrap {
+        width: min(1100px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 72px;
+      }
+
+      .hero {
+        padding: 72px 0 40px;
+        display: grid;
+        gap: 24px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(48px, 8vw, 88px);
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+      }
+
+      .sub {
+        max-width: 720px;
+        font-size: clamp(18px, 2.3vw, 22px);
+        line-height: 1.6;
+        color: var(--muted);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 8px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 14px 20px;
+        border-radius: 14px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+      }
+
+      .button:hover { transform: translateY(-1px); }
+
+      .button.primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #0b1020;
+      }
+
+      .button.secondary {
+        color: var(--text);
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 18px;
+        margin-top: 40px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 22px;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+      }
+
+      .card h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .commands {
+        margin-top: 32px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .command {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      code {
+        font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 14px;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 4px 8px;
+        border-radius: 10px;
+      }
+
+      footer {
+        margin-top: 56px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div class="badge">Slack app · AI commentary · Gossiper</div>
+        <h1>Gossiper</h1>
+        <p class="sub">
+          A playful Slack app that listens in-channel and sends private AI-generated gossip to opted-in teammates.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="https://gossiper.company/slack/install">Install to Slack</a>
+          <a class="button secondary" href="https://gossiper.company/health">Health check</a>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Private reactions</h2>
+          <p>Gossiper sends ephemeral, private commentary instead of posting publicly in the channel.</p>
+        </article>
+        <article class="card">
+          <h2>Workspace-aware</h2>
+          <p>Each Slack workspace installs independently with its own bot token and configuration.</p>
+        </article>
+        <article class="card">
+          <h2>Opt-in controls</h2>
+          <p>Whitelist channels and recipients so gossip only goes where you want it to.</p>
+        </article>
+      </section>
+
+      <section class="commands">
+        <div class="command">
+          <code>/gossip-channel</code>
+          <span>Whitelist the current channel for gossip. Add <code>off</code> to disable it.</span>
+        </div>
+        <div class="command">
+          <code>/gossip-me</code>
+          <span>Opt yourself in to receive gossip. Add <code>off</code> to opt out.</span>
+        </div>
+      </section>
+
+      <footer>
+        Base URL: <a href="https://gossiper.company">https://gossiper.company</a><br />
+        API base URL: <a href="https://gossiper.company/api">https://gossiper.company/api</a>
+      </footer>
+    </main>
+  </body>
+</html>
