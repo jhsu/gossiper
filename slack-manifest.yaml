@@ -6,6 +6,17 @@ features:
   bot_user:
     display_name: Gossiper
     always_online: false
+  slash_commands:
+    - command: /gossip-channel
+      url: https://your-domain.example/slack/commands
+      description: Whitelist the current channel for gossip
+      usage_hint: "[off]"
+      should_escape: false
+    - command: /gossip-me
+      url: https://your-domain.example/slack/commands
+      description: Opt yourself in to receive gossip
+      usage_hint: "[off]"
+      should_escape: false
 oauth_config:
   redirect_urls:
     - https://your-domain.example/slack/oauth/callback
@@ -14,6 +25,7 @@ oauth_config:
       - channels:history
       - groups:history
       - chat:write
+      - commands
 settings:
   event_subscriptions:
     request_url: https://your-domain.example/slack/events

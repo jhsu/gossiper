@@ -54,6 +54,11 @@ https://your-domain.example/slack/install
 
 Install the app into each workspace you want to support.
 
+Then in Slack:
+- run `/gossip-channel` in a channel to whitelist that channel
+- run `/gossip-me` to opt yourself in for gossip delivery
+- run either command with `off` to remove the whitelist entry
+
 ## Notes
 
 - The bot must still be invited to channels it should monitor.

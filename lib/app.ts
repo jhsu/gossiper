@@ -12,13 +12,13 @@ const tursoAuthToken = must("TURSO_AUTH_TOKEN");
 const publicBaseUrl = Bun.env.PUBLIC_BASE_URL?.replace(/\/$/, "");
 const redirectUri = Bun.env.SLACK_REDIRECT_URI ?? (publicBaseUrl ? `${publicBaseUrl}/slack/oauth/callback` : undefined);
 const ensuredRedirectUri = redirectUri ?? fail("Set SLACK_REDIRECT_URI or PUBLIC_BASE_URL");
-const channelWhitelist = new Set(
+const configuredChannelWhitelist = new Set(
   (Bun.env.SLACK_CHANNEL_WHITELIST ?? Bun.env.SLACK_CHANNEL_ID ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
 );
-const userWhitelist = new Set(
+const configuredUserWhitelist = new Set(
   (Bun.env.SLACK_USER_WHITELIST ?? "")
     .split(",")
     .map((s) => s.trim())
@@ -28,8 +28,10 @@ const gossipCooldownMs = Number(Bun.env.GOSSIP_COOLDOWN_MS ?? 300_000);
 const gossipProbability = Number(Bun.env.GOSSIP_PROBABILITY ?? 0.6);
 const openaiModel = Bun.env.OPENAI_MODEL ?? "gpt-4.1-mini";
 const installUrl = publicBaseUrl ? `${publicBaseUrl}/slack/install` : "/slack/install";
-const botScopes = ["channels:history", "groups:history", "chat:write"];
-
+const botScopes = ["channels:history", "groups:history", "chat:write", "commands"];
+const channelCommandName = "/gossip-channel";
+const userCommandName = "/gossip-me";
+const commandDisableWords = new Set(["off", "remove", "disable", "stop"]);
 
 const openai = createOpenAI({ apiKey: openaiApiKey });
 const db = createClient({
@@ -49,6 +51,7 @@ export async function handleRequest(req: Request) {
   if (url.pathname === "/slack/install") return handleSlackInstall();
   if (url.pathname === "/slack/oauth/callback") return handleSlackOAuthCallback(req);
   if (url.pathname === "/slack/events" && req.method === "POST") return handleSlackEvents(req);
+  if (url.pathname === "/slack/commands" && req.method === "POST") return handleSlackCommands(req);
 
   return json({ error: "not found" }, 404);
 }
@@ -72,6 +75,11 @@ export async function handleHomepage() {
     <p><a href="${escapeHtml(installUrl)}">Install to Slack</a></p>
     <h2>Installed workspaces</h2>
     <ul>${items}</ul>
+    <h2>Slash commands</h2>
+    <ul>
+      <li><code>${escapeHtml(channelCommandName)}</code> — whitelist this channel. Add <code>off</code> to remove it.</li>
+      <li><code>${escapeHtml(userCommandName)}</code> — opt yourself in. Add <code>off</code> to opt out.</li>
+    </ul>
   `);
 }
 
@@ -124,6 +132,7 @@ export async function handleSlackOAuthCallback(req: Request) {
       <p>Workspace: <strong>${escapeHtml(payload.team?.name ?? teamId)}</strong></p>
       <p>The app can now receive events for this workspace.</p>
       <p>Invite the bot to any channel you want it to monitor.</p>
+      <p>Use <code>${escapeHtml(channelCommandName)}</code> in a channel to whitelist it and <code>${escapeHtml(userCommandName)}</code> to opt yourself in.</p>
     `);
   } catch (caught) {
     console.error("OAuth callback failed", caught);
@@ -156,12 +165,61 @@ export async function handleSlackEvents(req: Request) {
   return json({ ok: true });
 }
 
+export async function handleSlackCommands(req: Request) {
+  await init();
+
+  const rawBody = await req.text();
+
+  if (!isValidSlackRequest(req, rawBody, slackSigningSecret)) {
+    return json({ error: "invalid signature" }, 401);
+  }
+
+  const form = new URLSearchParams(rawBody);
+  const command = form.get("command");
+  const teamId = form.get("team_id");
+  const channelId = form.get("channel_id");
+  const userId = form.get("user_id");
+  const text = form.get("text")?.trim().toLowerCase() ?? "";
+  const enabled = !commandDisableWords.has(text);
+
+  if (!command || !teamId || !channelId || !userId) {
+    return slackCommandResponse("Missing Slack command context.");
+  }
+
+  try {
+    if (command === channelCommandName) {
+      if (enabled) {
+        await addWhitelistedChannel(teamId, channelId);
+        return slackCommandResponse("This channel is now whitelisted for gossip.");
+      }
+
+      await removeWhitelistedChannel(teamId, channelId);
+      return slackCommandResponse("This channel has been removed from the gossip whitelist.");
+    }
+
+    if (command === userCommandName) {
+      if (enabled) {
+        await addWhitelistedUser(teamId, userId);
+        return slackCommandResponse("You're now opted in to receive gossip.");
+      }
+
+      await removeWhitelistedUser(teamId, userId);
+      return slackCommandResponse("You're now opted out of receiving gossip.");
+    }
+
+    return slackCommandResponse(`Unknown command: ${command}`);
+  } catch (caught) {
+    console.error("Slack command failed", caught);
+    return slackCommandResponse("That command failed. Check the app logs and try again.");
+  }
+}
+
 async function handleMessageEvent(payload: Extract<SlackEnvelope, { type: "event_callback" }>) {
   const event = payload.event;
   const teamId = payload.team_id;
 
   if (!teamId || event.user == null || event.bot_id != null || event.subtype != null) return;
-  if (channelWhitelist.size > 0 && !channelWhitelist.has(event.channel)) return;
+  if (!(await isChannelWhitelisted(teamId, event.channel))) return;
 
   const install = await getInstall(teamId);
   if (!install) {
@@ -196,7 +254,7 @@ async function handleMessageEvent(payload: Extract<SlackEnvelope, { type: "event
     return;
   }
 
-  const recipients = Array.from(userWhitelist).filter((userId) => {
+  const recipients = (await listWhitelistedUsers(teamId)).filter((userId) => {
     if (userId === install.bot_user_id) return false;
     if (userId === event.user && gossipProbability !== 1) return false;
     return true;
@@ -305,6 +363,22 @@ async function ensureSchema(client: Client) {
           user_id TEXT NOT NULL,
           last_gossiped_at INTEGER NOT NULL,
           PRIMARY KEY (team_id, channel_id, user_id)
+        )
+      `,
+      `
+        CREATE TABLE IF NOT EXISTS whitelisted_channels (
+          team_id TEXT NOT NULL,
+          channel_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (team_id, channel_id)
+        )
+      `,
+      `
+        CREATE TABLE IF NOT EXISTS whitelisted_users (
+          team_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (team_id, user_id)
         )
       `,
     ],
@@ -443,6 +517,103 @@ async function setLastGossipedAt(input: { teamId: string; channelId: string; use
   });
 }
 
+async function isChannelWhitelisted(teamId: string, channelId: string) {
+  if (configuredChannelWhitelist.has(channelId)) return true;
+
+  const dbCount = await countWhitelistedChannels(teamId);
+  if (configuredChannelWhitelist.size === 0 && dbCount === 0) return true;
+
+  return hasWhitelistedChannel(teamId, channelId);
+}
+
+async function countWhitelistedChannels(teamId: string) {
+  const result = await db.execute({
+    sql: `
+      SELECT COUNT(*) AS count
+      FROM whitelisted_channels
+      WHERE team_id = ?
+    `,
+    args: [teamId],
+  });
+
+  const row = result.rows[0] as CountRecord | undefined;
+  return Number(row?.count ?? 0);
+}
+
+async function hasWhitelistedChannel(teamId: string, channelId: string) {
+  const result = await db.execute({
+    sql: `
+      SELECT 1 AS found
+      FROM whitelisted_channels
+      WHERE team_id = ?
+        AND channel_id = ?
+      LIMIT 1
+    `,
+    args: [teamId, channelId],
+  });
+
+  return result.rows.length > 0;
+}
+
+async function addWhitelistedChannel(teamId: string, channelId: string) {
+  await db.execute({
+    sql: `
+      INSERT INTO whitelisted_channels (team_id, channel_id, created_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(team_id, channel_id) DO NOTHING
+    `,
+    args: [teamId, channelId, Date.now()],
+  });
+}
+
+async function removeWhitelistedChannel(teamId: string, channelId: string) {
+  await db.execute({
+    sql: `
+      DELETE FROM whitelisted_channels
+      WHERE team_id = ?
+        AND channel_id = ?
+    `,
+    args: [teamId, channelId],
+  });
+}
+
+async function listWhitelistedUsers(teamId: string) {
+  const result = await db.execute({
+    sql: `
+      SELECT user_id
+      FROM whitelisted_users
+      WHERE team_id = ?
+      ORDER BY created_at ASC
+    `,
+    args: [teamId],
+  });
+
+  const dbUsers = (result.rows as unknown as WhitelistedUserRecord[]).map((row) => row.user_id);
+  return Array.from(new Set([...configuredUserWhitelist, ...dbUsers]));
+}
+
+async function addWhitelistedUser(teamId: string, userId: string) {
+  await db.execute({
+    sql: `
+      INSERT INTO whitelisted_users (team_id, user_id, created_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(team_id, user_id) DO NOTHING
+    `,
+    args: [teamId, userId, Date.now()],
+  });
+}
+
+async function removeWhitelistedUser(teamId: string, userId: string) {
+  await db.execute({
+    sql: `
+      DELETE FROM whitelisted_users
+      WHERE team_id = ?
+        AND user_id = ?
+    `,
+    args: [teamId, userId],
+  });
+}
+
 function authorizeUrl() {
   const url = new URL("https://slack.com/oauth/v2/authorize");
   url.searchParams.set("client_id", slackClientId);
@@ -490,6 +661,10 @@ async function slackApi(method: string, token: string, body: Record<string, stri
   }
 
   return payload;
+}
+
+function slackCommandResponse(text: string) {
+  return json({ response_type: "ephemeral", text });
 }
 
 function createState() {
@@ -609,4 +784,12 @@ type ChannelHistoryRecord = {
 
 type GossipCooldownRecord = {
   last_gossiped_at: number;
+};
+
+type WhitelistedUserRecord = {
+  user_id: string;
+};
+
+type CountRecord = {
+  count: number | string;
 };
