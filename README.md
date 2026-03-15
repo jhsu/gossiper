@@ -58,6 +58,5 @@ Install the app into each workspace you want to support.
 
 - The bot must still be invited to channels it should monitor.
 - `SLACK_CHANNEL_ID` is optional and applies globally across all installed workspaces.
-- Workspace installs are stored in Turso.
-- Channel history and cooldown tracking are still kept in-memory, so they are best-effort across serverless invocations.
+- Workspace installs, channel history, and cooldown tracking are stored in Turso.
 - `OPENAI_MODEL` defaults to `gpt-4.1-mini`.

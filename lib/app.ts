@@ -39,12 +39,7 @@ const db = createClient({
 
 let initPromise: Promise<void> | null = null;
 
-// Short channel history: key = "teamId:channelId", value = last 20 messages
-const channelHistory = new Map<string, Array<{ userId: string; text: string }>>();
 const HISTORY_MAX = 20;
-
-// Cooldown tracking: key = "teamId:channelId:userId", value = Date.now() of last gossip
-const lastGossiped = new Map<string, number>();
 
 export async function handleRequest(req: Request) {
   const url = new URL(req.url);
@@ -178,16 +173,20 @@ async function handleMessageEvent(payload: Extract<SlackEnvelope, { type: "event
 
   console.log(`[message] team=${teamId} channel=${event.channel} user=${event.user} mode=gossip`);
 
-  const historyKey = `${teamId}:${event.channel}`;
-  const history = channelHistory.get(historyKey) ?? [];
-  history.push({ userId: event.user, text: event.text ?? "" });
-  while (history.length > HISTORY_MAX) {
-    history.shift();
-  }
-  channelHistory.set(historyKey, history);
+  await recordChannelMessage({
+    teamId,
+    channelId: event.channel,
+    userId: event.user,
+    text: event.text ?? "",
+  });
 
-  const cooldownKey = `${teamId}:${event.channel}:${event.user}`;
-  const lastGossipedAt = lastGossiped.get(cooldownKey);
+  const history = await getChannelHistory(teamId, event.channel);
+
+  const lastGossipedAt = await getLastGossipedAt({
+    teamId,
+    channelId: event.channel,
+    userId: event.user,
+  });
   if (gossipProbability !== 1 && lastGossipedAt != null && Date.now() - lastGossipedAt < gossipCooldownMs) {
     console.log(`[gossip] skipped cooldown for user=${event.user}`);
     return;
@@ -206,7 +205,7 @@ async function handleMessageEvent(payload: Extract<SlackEnvelope, { type: "event
 
   const historyText = history
     .slice(0, -1)
-    .map((message) => `${message.userId}: ${message.text}`)
+    .map((message) => `${message.user_id}: ${message.text}`)
     .join("\n");
 
   const prompt = [
@@ -240,7 +239,12 @@ async function handleMessageEvent(payload: Extract<SlackEnvelope, { type: "event
       return;
     }
 
-    lastGossiped.set(cooldownKey, Date.now());
+    await setLastGossipedAt({
+      teamId,
+      channelId: event.channel,
+      userId: event.user,
+      timestamp: Date.now(),
+    });
 
     for (const recipient of recipients) {
       await slackApi("chat.postEphemeral", install.bot_token, {
@@ -267,17 +271,45 @@ async function init() {
 }
 
 async function ensureSchema(client: Client) {
-  await client.execute(`
-    CREATE TABLE IF NOT EXISTS slack_installs (
-      team_id TEXT PRIMARY KEY,
-      team_name TEXT,
-      bot_user_id TEXT NOT NULL,
-      bot_token TEXT NOT NULL,
-      scope TEXT,
-      installed_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
+  await client.batch(
+    [
+      `
+        CREATE TABLE IF NOT EXISTS slack_installs (
+          team_id TEXT PRIMARY KEY,
+          team_name TEXT,
+          bot_user_id TEXT NOT NULL,
+          bot_token TEXT NOT NULL,
+          scope TEXT,
+          installed_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `,
+      `
+        CREATE TABLE IF NOT EXISTS gossip_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          team_id TEXT NOT NULL,
+          channel_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          text TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      `,
+      `
+        CREATE INDEX IF NOT EXISTS gossip_history_team_channel_created_idx
+        ON gossip_history (team_id, channel_id, created_at DESC, id DESC)
+      `,
+      `
+        CREATE TABLE IF NOT EXISTS gossip_cooldowns (
+          team_id TEXT NOT NULL,
+          channel_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          last_gossiped_at INTEGER NOT NULL,
+          PRIMARY KEY (team_id, channel_id, user_id)
+        )
+      `,
+    ],
+    "write",
+  );
 }
 
 async function upsertInstall(input: {
@@ -326,6 +358,89 @@ async function listInstalls() {
   `);
 
   return result.rows as unknown as Array<Pick<InstallRecord, "team_id" | "team_name" | "installed_at" | "updated_at">>;
+}
+
+async function recordChannelMessage(input: {
+  teamId: string;
+  channelId: string;
+  userId: string;
+  text: string;
+}) {
+  const createdAt = Date.now();
+
+  await db.batch(
+    [
+      {
+        sql: `
+          INSERT INTO gossip_history (team_id, channel_id, user_id, text, created_at)
+          VALUES (?, ?, ?, ?, ?)
+        `,
+        args: [input.teamId, input.channelId, input.userId, input.text, createdAt],
+      },
+      {
+        sql: `
+          DELETE FROM gossip_history
+          WHERE team_id = ?
+            AND channel_id = ?
+            AND id NOT IN (
+              SELECT id
+              FROM gossip_history
+              WHERE team_id = ?
+                AND channel_id = ?
+              ORDER BY created_at DESC, id DESC
+              LIMIT ?
+            )
+        `,
+        args: [input.teamId, input.channelId, input.teamId, input.channelId, HISTORY_MAX],
+      },
+    ],
+    "write",
+  );
+}
+
+async function getChannelHistory(teamId: string, channelId: string) {
+  const result = await db.execute({
+    sql: `
+      SELECT user_id, text
+      FROM gossip_history
+      WHERE team_id = ?
+        AND channel_id = ?
+      ORDER BY created_at ASC, id ASC
+      LIMIT ?
+    `,
+    args: [teamId, channelId, HISTORY_MAX],
+  });
+
+  return result.rows as unknown as ChannelHistoryRecord[];
+}
+
+async function getLastGossipedAt(input: { teamId: string; channelId: string; userId: string }) {
+  const result = await db.execute({
+    sql: `
+      SELECT last_gossiped_at
+      FROM gossip_cooldowns
+      WHERE team_id = ?
+        AND channel_id = ?
+        AND user_id = ?
+      LIMIT 1
+    `,
+    args: [input.teamId, input.channelId, input.userId],
+  });
+
+  const row = result.rows[0] as GossipCooldownRecord | undefined;
+  return row?.last_gossiped_at ?? null;
+}
+
+async function setLastGossipedAt(input: { teamId: string; channelId: string; userId: string; timestamp: number }) {
+  await db.execute({
+    sql: `
+      INSERT INTO gossip_cooldowns (team_id, channel_id, user_id, last_gossiped_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(team_id, channel_id, user_id) DO UPDATE SET
+        last_gossiped_at = excluded.last_gossiped_at
+    `,
+    args: [input.teamId, input.channelId, input.userId, input.timestamp],
+  });
 }
 
 function authorizeUrl() {
@@ -485,4 +600,13 @@ type InstallRecord = {
   scope: string | null;
   installed_at: string;
   updated_at: string;
+};
+
+type ChannelHistoryRecord = {
+  user_id: string;
+  text: string;
+};
+
+type GossipCooldownRecord = {
+  last_gossiped_at: number;
 };
