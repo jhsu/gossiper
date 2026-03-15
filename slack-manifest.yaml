@@ -1,10 +1,10 @@
 display_information:
-  name: Side Voice
+  name: Gossiper
   description: Passive Slack listener that sends AI-generated private commentary.
   background_color: "#1f2937"
 features:
   bot_user:
-    display_name: Side Voice
+    display_name: Gossiper
     always_online: false
 oauth_config:
   redirect_urls:

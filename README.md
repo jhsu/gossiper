@@ -1,6 +1,6 @@
-# slack-side-voice
+# Gossiper
 
-Minimal Bun Slack bot that supports installing the same app into multiple workspaces. It passively listens to channel messages and sends AI-generated private commentary back to the message author with `chat.postEphemeral`.
+Gosspier is a Slack bot that passively listens to channel messages and you sends private commentary on other peoples messages.
 
 ## Files
 
