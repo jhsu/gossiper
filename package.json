@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "bun --watch index.ts",
     "start": "bun index.ts",
+    "vercel:dev": "bunx vercel dev",
     "check": "bunx tsc --noEmit",
     "funnel": "tailscale funnel 3005 & bun --watch index.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
+    "@libsql/client": "^0.17.0",
     "ai": "latest"
   },
   "devDependencies": {

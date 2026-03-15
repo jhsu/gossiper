@@ -1,10 +1,12 @@
 # Gossiper
 
-Gosspier is a Slack bot that passively listens to channel messages and you sends private commentary on other peoples messages.
+Gossiper is a Slack bot that passively listens to channel messages and sends private commentary on other peoples' messages.
 
 ## Files
 
-- `index.ts` - single-file bot server with Slack OAuth, event handling, and SQLite install storage
+- `index.ts` - local Bun dev server wrapper for the shared request handler
+- `lib/app.ts` - shared Slack OAuth, event handling, and Turso-backed install storage
+- `api/**` - Vercel Bun function entrypoints
 - `slack-manifest.yaml` - Slack app manifest with Events API, OAuth redirect, and bot scopes
 - `.env.example` - required environment variables
 
@@ -31,7 +33,8 @@ https://your-domain.example/slack/events
 ```
 
 4. Copy `.env.example` to `.env` and fill in the values.
-5. Install dependencies:
+5. Create a Turso database and set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
+6. Install dependencies:
 
 ```bash
 bun install
@@ -55,5 +58,6 @@ Install the app into each workspace you want to support.
 
 - The bot must still be invited to channels it should monitor.
 - `SLACK_CHANNEL_ID` is optional and applies globally across all installed workspaces.
-- Workspace installs are stored in a local SQLite file.
+- Workspace installs are stored in Turso.
+- Channel history and cooldown tracking are still kept in-memory, so they are best-effort across serverless invocations.
 - `OPENAI_MODEL` defaults to `gpt-4.1-mini`.
