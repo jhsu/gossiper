@@ -60,7 +60,7 @@ export async function handleHomepage() {
   await init();
 
   return html(`
-    <h1>Side Voice</h1>
+    <h1>Gossiper</h1>
     <p>Minimal multi-workspace Slack listener built with Bun and deployed on Vercel.</p>
     <p><a href="${escapeHtml(installUrl)}">Install to Slack</a></p>
     <h2>Slash commands</h2>
@@ -116,7 +116,7 @@ export async function handleSlackOAuthCallback(req: Request) {
     });
 
     return html(`
-      <h1>Installed Side Voice</h1>
+      <h1>Installed Gossiper</h1>
       <p>Workspace: <strong>${escapeHtml(payload.team?.name ?? teamId)}</strong></p>
       <p>The app can now receive events for this workspace.</p>
       <p>Invite the bot to any channel you want it to monitor.</p>

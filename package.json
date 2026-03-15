@@ -1,5 +1,5 @@
 {
-  "name": "slack-side-voice",
+  "name": "gossiper",
   "module": "index.ts",
   "type": "module",
   "private": true,

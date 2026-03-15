@@ -8,18 +8,18 @@ features:
     always_online: false
   slash_commands:
     - command: /gossip-channel
-      url: https://your-domain.example/slack/commands
+      url: https://gossiper.company/slack/commands
       description: Whitelist the current channel for gossip
       usage_hint: "[off]"
       should_escape: false
     - command: /gossip-me
-      url: https://your-domain.example/slack/commands
+      url: https://gossiper.company/slack/commands
       description: Opt yourself in to receive gossip
       usage_hint: "[off]"
       should_escape: false
 oauth_config:
   redirect_urls:
-    - https://your-domain.example/slack/oauth/callback
+    - https://gossiper.company/slack/oauth/callback
   scopes:
     bot:
       - channels:history
@@ -28,7 +28,7 @@ oauth_config:
       - commands
 settings:
   event_subscriptions:
-    request_url: https://your-domain.example/slack/events
+    request_url: https://gossiper.company/slack/events
     bot_events:
       - message.channels
       - message.groups

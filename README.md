@@ -23,13 +23,13 @@ Gossiper is a Slack bot that passively listens to channel messages and sends pri
 2. In the Slack app config, make sure the redirect URL matches:
 
 ```text
-https://your-domain.example/slack/oauth/callback
+https://gossiper.company/api/slack/oauth/callback
 ```
 
 3. Make sure the Events API request URL matches:
 
 ```text
-https://your-domain.example/slack/events
+https://gossiper.company/api/slack/events
 ```
 
 4. Copy `.env.example` to `.env` and fill in the values.
@@ -49,7 +49,7 @@ bun run dev
 Then open:
 
 ```text
-https://your-domain.example/slack/install
+https://gossiper.company/api/slack/install
 ```
 
 Install the app into each workspace you want to support.
