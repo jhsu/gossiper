@@ -59,22 +59,10 @@ export async function handleRequest(req: Request) {
 export async function handleHomepage() {
   await init();
 
-  const installs = await listInstalls();
-  const items = installs.length
-    ? installs
-        .map(
-          (install) =>
-            `<li><strong>${escapeHtml(install.team_name ?? install.team_id)}</strong> <small>(${escapeHtml(install.team_id)})</small></li>`,
-        )
-        .join("")
-    : "<li>No workspaces installed yet.</li>";
-
   return html(`
     <h1>Side Voice</h1>
     <p>Minimal multi-workspace Slack listener built with Bun and deployed on Vercel.</p>
     <p><a href="${escapeHtml(installUrl)}">Install to Slack</a></p>
-    <h2>Installed workspaces</h2>
-    <ul>${items}</ul>
     <h2>Slash commands</h2>
     <ul>
       <li><code>${escapeHtml(channelCommandName)}</code> — whitelist this channel. Add <code>off</code> to remove it.</li>
