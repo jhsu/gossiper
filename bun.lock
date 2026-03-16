@@ -8,6 +8,7 @@
         "@ai-sdk/openai": "latest",
         "@libsql/client": "^0.17.0",
         "ai": "latest",
+        "varlock": "^0.5.0",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -99,6 +100,8 @@
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
+
+    "varlock": ["varlock@0.5.0", "", { "bin": { "varlock": "bin/cli.js" } }, "sha512-jfFNdzK+pznQWyp6eHv7X3iImEmNG7KaGZL2sQJxTlifxRtIwgNknLKmds8zPUhUMdcCybhJy52lewgscu8pkg=="],
 
     "web-streams-polyfill": ["web-streams-polyfill@3.3.3", "", {}, "sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw=="],
 

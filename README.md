@@ -43,7 +43,7 @@ bun install
 ## Run
 
 ```bash
-bun run dev
+bunx varlock run -- bun run dev
 ```
 
 Then open:
