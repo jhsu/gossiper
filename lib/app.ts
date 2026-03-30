@@ -28,6 +28,7 @@ const gossipCooldownMs = Number(Bun.env.GOSSIP_COOLDOWN_MS ?? 300_000);
 const gossipProbability = Number(Bun.env.GOSSIP_PROBABILITY ?? 0.6);
 const openaiModel = Bun.env.OPENAI_MODEL ?? "gpt-4.1-mini";
 const installUrl = publicBaseUrl ? `${publicBaseUrl}/slack/install` : "/slack/install";
+const homepageImageUrl = "/example.png";
 const botScopes = ["channels:history", "groups:history", "chat:write", "commands"];
 const channelCommandName = "/gossip-channel";
 const userCommandName = "/gossip-me";
@@ -46,6 +47,7 @@ const HISTORY_MAX = 20;
 export async function handleRequest(req: Request) {
   const url = new URL(req.url);
 
+  if (url.pathname === homepageImageUrl) return handlePublicFile("example.png");
   if (url.pathname === "/") return handleHomepage();
   if (url.pathname === "/health") return handleHealth();
   if (url.pathname === "/slack/install") return handleSlackInstall();
@@ -63,12 +65,18 @@ export async function handleHomepage() {
     <h1>Gossiper</h1>
     <p>Minimal multi-workspace Slack listener built with Bun and deployed on Vercel.</p>
     <p><a href="${escapeHtml(installUrl)}">Install to Slack</a></p>
+    <p><img src="${homepageImageUrl}" alt="Gossiper example" style="display: block; max-width: 100%; height: auto; border-radius: 12px; margin: 24px 0;" /></p>
     <h2>Slash commands</h2>
     <ul>
       <li><code>${escapeHtml(channelCommandName)}</code> — whitelist this channel. Add <code>off</code> to remove it.</li>
       <li><code>${escapeHtml(userCommandName)}</code> — opt yourself in. Add <code>off</code> to opt out.</li>
     </ul>
   `);
+}
+
+function handlePublicFile(name: string) {
+  const file = Bun.file(new URL(`../public/${name}`, import.meta.url));
+  return new Response(file);
 }
 
 export function handleHealth() {
