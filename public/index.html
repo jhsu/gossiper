@@ -79,6 +79,15 @@
         margin-top: 8px;
       }
 
+      .hero-image {
+        width: min(100%, 920px);
+        height: auto;
+        display: block;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+      }
+
       .button {
         display: inline-flex;
         align-items: center;
@@ -176,6 +185,7 @@
           <a class="button primary" href="https://gossiper.company/api/slack/install">Install to Slack</a>
           <a class="button secondary" href="https://gossiper.company/api/health">Health check</a>
         </div>
+        <img class="hero-image" src="/example.png" alt="Gossiper example" />
       </section>
 
       <section class="grid">
